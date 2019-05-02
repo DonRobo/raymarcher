@@ -1,6 +1,6 @@
 package at.donrobo.render
 
-import kotlin.math.sqrt
+import kotlin.math.*
 
 data class Vector3(val x: Float, val y: Float, val z: Float) {
     constructor(value: Float) : this(value, value, value)
@@ -48,6 +48,14 @@ data class Vector3(val x: Float, val y: Float, val z: Float) {
     operator fun times(vec: Vector3): Vector3 = Vector3(this.x * vec.x, this.y * vec.y, this.z * vec.z)
 
 }
+
+fun abs(vec: Vector3): Vector3 = Vector3(abs(vec.x), abs(vec.y), abs(vec.z))
+fun max(vec: Vector3, scalar: Float) = Vector3(max(vec.x, scalar), max(vec.y, scalar), max(vec.z, scalar))
+fun min(vec: Vector3, scalar: Float) = Vector3(min(vec.x, scalar), min(vec.y, scalar), min(vec.z, scalar))
+
+private infix fun Float.mod(f2: Float): Float = this - f2 * floor(this / f2)
+
+fun mod(vec1: Vector3, vec2: Vector3) = Vector3(vec1.x mod vec2.x, vec1.y mod vec2.y, vec1.z mod vec2.z)
 
 operator fun Float.times(vec: Vector3): Vector3 = vec * this
 

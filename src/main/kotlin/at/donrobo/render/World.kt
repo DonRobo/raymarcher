@@ -13,24 +13,6 @@ data class TraceResult(
     val position: Vector3?
 )
 
-interface WorldObject {
-    fun distanceTo(point: Vector3): Float
-    val color: Vector3
-    val specular: Vector3
-    val m: Float
-
-}
-
-data class Sphere(
-    val position: Vector3, val radius: Float,
-    override val color: Vector3,
-    override val specular: Vector3,
-    override val m: Float
-) : WorldObject {
-    override fun distanceTo(point: Vector3): Float = position.distanceTo(point) - radius
-
-}
-
 data class Light(val position: Vector3, val color: Vector3, val size: Float)
 
 class World(val objects: List<WorldObject>, val lights: List<Light>, val ambientLight: Vector3) {
@@ -115,7 +97,6 @@ class World(val objects: List<WorldObject>, val lights: List<Light>, val ambient
             val y = distance * distance / (2f * prevDist)
             val d = sqrt(distance * distance - y * y)
             visibility = min(visibility, k * d / max(0f, t - y))
-//            visibility = min(visibility, k * distance / t)
 
             prevDist = distance
             t += distance
