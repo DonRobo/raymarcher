@@ -1,8 +1,7 @@
 package at.donrobo.render
 
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
+import at.donrobo.clear
+import kotlinx.coroutines.*
 import java.awt.Color
 import java.awt.image.BufferedImage
 import kotlin.math.max
@@ -15,11 +14,15 @@ const val epsilon: Float = 0.001f
 data class Ray(val origin: Vector3, val direction: Vector3)
 
 data class Camera(val origin: Vector3, val lookAt: Vector3, val up: Vector3, val f: Float, val ws: Float) {
+    fun move(moveBy: Vector3): Camera = Camera(origin + moveBy, lookAt + moveBy, up, f, ws)
+
     val w: Vector3 = (origin - lookAt) / (origin - lookAt).length
     val u = ((up * -1f) cross w) / ((up * -1f) cross w).length
     val v = w cross u
 }
 
+@ObsoleteCoroutinesApi
+@ExperimentalCoroutinesApi
 object Raymarcher {
 
     private fun shade(
@@ -46,6 +49,7 @@ object Raymarcher {
                             0.1f,
                             lightDistance
                         )
+//                 val hitByLight=1f
 
                 if (hitByLight > 0 && !hitByLight.isNaN()) {
                     val cosAngle = lightDirection dot normal
@@ -86,40 +90,42 @@ object Raymarcher {
 
         val rgbArray = IntArray(width * height)
 
-        val jobs =
-            (0 until rgbArray.size).map { n ->
-                GlobalScope.async {
-                    val x = n % width
-                    val y = n / width
-                    val rayTarget =
-                        Vector3(x * pixelSize - camera.ws / 2f, y * pixelSize - hs / 2f, -camera.f).translateInto(
-                            camera.origin,
-                            camera.w,
-                            camera.u,
-                            camera.v
-                        )
-                    val direction = (rayTarget - Vector3(0f)).normalized
-                    val ray = Ray(camera.origin, direction)
+        newSingleThreadContext("Render thread").use { dispatcher ->
 
-                    val result = world.hitWorld(ray, camera.f)
-                    val color: Int =
-                        if (result.hitSomething) {
-                            shade(world, ray, result)
-                        } else {
-                            Color(0, 0, 0, 0).rgb
-                        }
+            val jobs =
+                (0 until rgbArray.size).map { n ->
+                    GlobalScope.async(dispatcher) {
+                        val x = n % width
+                        val y = n / width
+                        val rayTarget =
+                            Vector3(x * pixelSize - camera.ws / 2f, y * pixelSize - hs / 2f, -camera.f).translateInto(
+                                camera.origin,
+                                camera.w,
+                                camera.u,
+                                camera.v
+                            )
+                        val direction = (rayTarget - camera.origin).normalized
+                        val ray = Ray(camera.origin, direction)
 
-                    color
+                        val result = world.hitWorld(ray, camera.f)
+                        val color: Int =
+                            if (result.hitSomething) {
+                                shade(world, ray, result)
+                            } else {
+                                Color(0, 0, 0, 0).rgb
+                            }
+
+                        color
+                    }
+                }
+
+            runBlocking {
+                jobs.forEachIndexed { i, job ->
+                    rgbArray[i] = job.await()
                 }
             }
-
-        runBlocking {
-            jobs.forEachIndexed { i, job ->
-                rgbArray[i] = job.await()
-            }
+            image.setRGB(0, 0, width, height, rgbArray, 0, width)
         }
-        image.setRGB(0, 0, width, height, rgbArray, 0, width)
-
         return image
     }
 
@@ -128,8 +134,3 @@ object Raymarcher {
 private val Vector3.color: Color
     get() = Color(max(0f, min(1f, x)), max(0f, min(1f, y)), max(0f, min(1f, z)))
 
-private fun BufferedImage.clear(color: Color) {
-    val graphics2D = createGraphics()
-    graphics2D.background = color
-    graphics2D.clearRect(0, 0, width, height)
-}
